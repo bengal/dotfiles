@@ -1,13 +1,4 @@
-;; shortcuts to navigate windows and buffers
-(global-set-key (kbd "M-e") 'ibuffer)
-(global-set-key (kbd "M-o") 'other-window)
-(global-set-key (kbd "M-k") 'delete-other-windows)
-(global-set-key (kbd "M-n") 'next-buffer)
-(global-set-key (kbd "M-p") 'previous-buffer)
-
-;; useful programming shortcuts
-(global-set-key (kbd "M-c") 'compile)
-(global-set-key (kbd "M-g") 'goto-line)
+(add-to-list 'load-path "~/.emacs.d/")
 
 ;; M-{up,down} to scroll buffer
 (defun scroll-down-in-place (n)
@@ -20,14 +11,16 @@
   (scroll-up n))
 (global-set-key [M-up] 'scroll-down-in-place)
 (global-set-key [M-down] 'scroll-up-in-place)
+(global-set-key "\M-[1;3A" 'scroll-down-in-place) ;; inside tmux
+(global-set-key "\M-[1;3B" 'scroll-up-in-place) ;; inside tmux
 
 ;; disable selection highlighting
 (setq transient-mark-mode nil)
 
 ;; whitespace mode
 (require 'whitespace)
-(setq whitespace-style (quote
-  (face trailing space-after-tab space-before-tab indentation)))
+(setq whitespace-style
+      (quote (face trailing space-after-tab space-before-tab indentation)))
 
 ;; use ibuffer for buffer menu
 (global-set-key (kbd "C-x C-b") 'ibuffer)
@@ -38,11 +31,14 @@
       (quote (("default"
 	       ("emacs" (name . "^*"))
 	       ("dired" (mode . dired-mode))
-	       ("dev" (or
-		       (name . "\\.c$")
-		       (name . "\\.h$")
-		       (name . "\\.sh$")
-		       (name . "akefile$")))
+	       ("source" (or
+			  (name . "\\.c$")
+			  (name . "\\.S$")
+			  (name . "\\.s$")
+			  (name . "\\.h$")
+			  (name . "\\.sh$")
+			  (name . "\\.mk$")
+			  (name . "akefile$")))
 	       ("gdb" (or
 		       (mode . gdb-breakpoints-mode)
 		       (mode . gdb-frames-mode)
@@ -52,18 +48,27 @@
 		       (mode . gnus-custom-mode)
 		       (mode . grep-mode)
 		       (mode . gud-mode)))
-))))
+	       ))))
 (add-hook 'ibuffer-mode-hook
 	  (lambda ()
 	    (ibuffer-switch-to-saved-filter-groups "default")))
 
-;; default linux kernel indentation
-(setq c-default-style "linux"
-      c-basic-offset 8)
+;; indent with tabs
+(defun c-mode-linux()
+  (interactive)
+  (setq c-default-style "linux"
+	c-basic-offset 8)
+  (setq-default indent-tabs-mode t))
 
 ;; indent with 4 spaces
-; (setq-default indent-tabs-mode nil)
-; (setq tab-width 4)
+(defun c-mode-qemu()
+  (interactive)
+  (setq-default indent-tabs-mode nil)
+  (setq c-default-style "linux"
+	c-basic-offset 4))
+
+(add-hook 'c-mode-common-hook 'c-mode-linux)
+;(add-hook 'c-mode-common-hook 'c-mode-qemu)
 
 ;; integration with cscope to index C sources
 (require 'xcscope)
@@ -130,11 +135,62 @@
 	   nil
 	   both nil)))
   (cpp-highlight-buffer t))
+
 (defun cpp-darken-disabled ()
   (cpp-highlight-if-0/1)
   (add-hook 'after-save-hook 'cpp-highlight-if-0/1 'append 'local)
   )
 (add-hook 'c-mode-common-hook 'cpp-darken-disabled)
 
-;; dired: reuse directory buffer
-(put 'dired-find-alternate-file 'disabled nil)
+(require 'open-resource)
+(global-set-key "\C-\M-r" 'open-resource)
+
+(setq open-resource-repository-directory "~/work/")
+(setq open-resource-ignore-patterns (quote ("/target/" "~$" ".old$")))
+
+;; Customizing colors used in diff mode
+(defun custom-diff-colors ()
+  "update the colors for diff faces"
+  (set-face-attribute
+   'diff-added nil :foreground "SeaGreen")
+  (set-face-attribute
+   'diff-removed nil :foreground "Red")
+  (set-face-attribute
+   'diff-hunk-header nil :foreground "purple")
+  (set-face-attribute
+   'diff-file-header nil :foreground "MediumBlue")
+  (set-face-attribute
+   'diff-header nil :foreground "purple"))
+(eval-after-load "diff-mode" '(custom-diff-colors))
+
+(setq large-file-warning-threshold 20000000)
+
+;; global keybindings:
+;; http://stackoverflow.com/questions/683425/globally-override-key-binding-in-emacs
+(defvar my-keys-minor-mode-map (make-keymap) "my-keys-minor-mode keymap.")
+
+;; shortcuts for navigating windows and buffers, optimized for dvorak layout :)
+(define-key my-keys-minor-mode-map (kbd "M-o") 'other-window)
+(define-key my-keys-minor-mode-map (kbd "M-k") 'delete-other-windows)
+(define-key my-keys-minor-mode-map (kbd "M-e") 'ibuffer)
+(define-key my-keys-minor-mode-map (kbd "M-n") 'next-buffer)
+(define-key my-keys-minor-mode-map (kbd "M-p") 'previous-buffer)
+(define-key my-keys-minor-mode-map (kbd "C-x C-b") 'ibuffer)
+
+;; other shortcuts useful for programming
+(define-key my-keys-minor-mode-map (kbd "M-c") 'compile)
+(define-key my-keys-minor-mode-map (kbd "M-g") 'goto-line)
+(define-key my-keys-minor-mode-map (kbd "M-r") 'rgrep)
+(define-key my-keys-minor-mode-map (kbd "M-q") 'fill-paragraph)
+
+(define-minor-mode my-keys-minor-mode
+  "A minor mode so that my key settings override annoying major modes."
+  t " my-keys" 'my-keys-minor-mode-map)
+
+(my-keys-minor-mode 1)
+
+;; shell scripts indentation
+(setq sh-basic-offset 8
+      sh-indentation 8)
+(setq-default sh-indent-for-case-label 0)
+(setq-default sh-indent-for-case-alt '+)
