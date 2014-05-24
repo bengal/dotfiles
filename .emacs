@@ -9,10 +9,6 @@
   (interactive "p")
   (next-line n)
   (scroll-up n))
-(global-set-key [M-up] 'scroll-down-in-place)
-(global-set-key [M-down] 'scroll-up-in-place)
-(global-set-key "\M-[1;3A" 'scroll-down-in-place) ;; inside tmux
-(global-set-key "\M-[1;3B" 'scroll-up-in-place) ;; inside tmux
 
 ;; disable selection highlighting
 (setq transient-mark-mode nil)
@@ -24,6 +20,13 @@
 
 ;; use ibuffer for buffer menu
 (global-set-key (kbd "C-x C-b") 'ibuffer)
+;; change ibuffer columns width
+(setq ibuffer-formats
+      '((mark modified read-only " "
+              (name 24 24 :left :elide) " "
+              (size 9 -1 :right) " "
+              (mode 16 16 :left :elide) " " filename-and-process)
+        (mark " " (name 16 -1) " " filename)))
 ;; group items in ibuffer by type
 (require 'ibuf-ext)
 (setq ibuffer-default-sorting-mode 'alphabetic)
@@ -39,6 +42,9 @@
 			  (name . "\\.sh$")
 			  (name . "\\.mk$")
 			  (name . "akefile$")))
+	       ("devicetree" (or
+			      (name . "\\.dts")
+			      (name . "\\dtsi")))
 	       ("gdb" (or
 		       (mode . gdb-breakpoints-mode)
 		       (mode . gdb-frames-mode)
@@ -165,6 +171,13 @@
 
 (setq large-file-warning-threshold 20000000)
 
+(defun occur-symbol-at-point ()
+  (interactive)
+  (let ((sym (thing-at-point 'symbol)))
+    (if sym
+        (push (regexp-quote sym) regexp-history)) ;regexp-history defvared in replace.el
+    (call-interactively 'occur)))
+
 ;; global keybindings:
 ;; http://stackoverflow.com/questions/683425/globally-override-key-binding-in-emacs
 (defvar my-keys-minor-mode-map (make-keymap) "my-keys-minor-mode keymap.")
@@ -175,13 +188,17 @@
 (define-key my-keys-minor-mode-map (kbd "M-e") 'ibuffer)
 (define-key my-keys-minor-mode-map (kbd "M-n") 'next-buffer)
 (define-key my-keys-minor-mode-map (kbd "M-p") 'previous-buffer)
+(define-key my-keys-minor-mode-map (kbd "M-q") 'fill-paragraph)
 (define-key my-keys-minor-mode-map (kbd "C-x C-b") 'ibuffer)
+(define-key my-keys-minor-mode-map (kbd "C-o") 'occur-symbol-at-point)
 
-;; other shortcuts useful for programming
 (define-key my-keys-minor-mode-map (kbd "M-c") 'compile)
 (define-key my-keys-minor-mode-map (kbd "M-g") 'goto-line)
 (define-key my-keys-minor-mode-map (kbd "M-r") 'rgrep)
-(define-key my-keys-minor-mode-map (kbd "M-q") 'fill-paragraph)
+
+(define-key my-keys-minor-mode-map [M-up] 'scroll-down-in-place)
+(define-key my-keys-minor-mode-map [M-down] 'scroll-up-in-place)
+
 
 (define-minor-mode my-keys-minor-mode
   "A minor mode so that my key settings override annoying major modes."
@@ -194,3 +211,44 @@
       sh-indentation 8)
 (setq-default sh-indent-for-case-label 0)
 (setq-default sh-indent-for-case-alt '+)
+
+;; org-mode
+(define-key my-keys-minor-mode-map (kbd "M-s RET") 'org-insert-todo-heading)
+
+;; avoid fsync
+(setq write-region-inhibit-fsync t)
+
+;; dired
+(require 'dired-x)
+(setq-default dired-omit-files-p t)
+(setq dired-omit-files "^\\...+$\\|\\.o$\\|\\.cmd$")
+(setq dired-listing-switches "-aBhl --group-directories-first")
+
+(add-hook 'dired-mode-hook
+ (lambda ()
+   (define-key dired-mode-map (kbd "C-<up>")
+    (lambda () (interactive) (find-alternate-file "..")))))
+
+;; dired single buffer mode
+;;
+;; (put 'dired-find-alternate-file 'disabled nil)
+
+;;  (defun th-dired-up-directory ()
+;;    "Go up one directory and don't create a new dired buffer but
+;;  reuse the current one."
+;;    (interactive)
+;;    (find-alternate-file ".."))
+
+;;  (defun th-dired-find-file ()
+;;    "Find directory reusing the current buffer and file creating a
+;;  new buffer."
+;;    (interactive)
+;;    (if (file-directory-p (dired-get-file-for-visit))
+;;        (dired-find-alternate-file)
+;;      (dired-find-file)))
+
+;;  (defun th-dired-mode-init ()
+;;    (local-set-key (kbd "^")       'th-dired-up-directory)
+;;    (local-set-key (kbd "RET")     'th-dired-find-file))
+
+;;  (add-hook 'dired-mode-hook 'th-dired-mode-init)
